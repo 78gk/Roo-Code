@@ -1,0 +1,13 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Run Roo Code (ABS path)",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": ["--extensionDevelopmentPath=C:\\projects\\10\\TRP1 Challenge Week 1\\roo-code\\src"],
+			"outFiles": ["${workspaceFolder}/dist/**/*.js"]
+		}
+	]
+}

@@ -6,6 +6,9 @@ import { validateToolUse } from "../../tools/validateToolUse"
 
 // Mock dependencies
 vi.mock("../../task/Task")
+vi.mock("../../intents/activeIntent", () => ({
+	hasActiveIntentSelected: vi.fn().mockResolvedValue(true),
+}))
 vi.mock("../../tools/validateToolUse", () => ({
 	validateToolUse: vi.fn(),
 	isValidToolName: vi.fn((toolName: string) =>

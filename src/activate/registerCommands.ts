@@ -14,6 +14,7 @@ import { CodeIndexManager } from "../services/code-index/manager"
 import { importSettingsWithFeedback } from "../core/config/importExport"
 import { MdmService } from "../services/mdm/MdmService"
 import { t } from "../i18n"
+import { listIntentChoices, setActiveIntentId } from "../core/intents/selectActiveIntent"
 
 /**
  * Helper to get the visible ClineProvider instance or log if not found.
@@ -182,6 +183,35 @@ const getCommandsMap = ({ context, outputChannel, provider }: RegisterCommandOpt
 		}
 
 		visibleProvider.postMessageToWebview({ type: "acceptInput" })
+	},
+	selectActiveIntent: async () => {
+		const visibleProvider = getVisibleProviderOrLog(outputChannel)
+		if (!visibleProvider) return
+
+		const cwd = visibleProvider.cwd
+		const choices = await listIntentChoices(cwd)
+		const pickItems: Array<vscode.QuickPickItem & { id: string | null }> = [
+			...choices.map((c) => ({ label: c.label, description: c.id, id: c.id })),
+			{ label: "(Clear active intent)", id: null },
+			{ label: "(Enter intent id manually)", id: "__manual__" },
+		]
+		const picked = await vscode.window.showQuickPick(pickItems, {
+			placeHolder: "Select active intent",
+			ignoreFocusOut: true,
+		})
+		if (!picked) return
+
+		if (picked.id === "__manual__") {
+			const manual = await vscode.window.showInputBox({
+				prompt: "Enter intent id",
+				ignoreFocusOut: true,
+			})
+			if (manual === undefined) return
+			await setActiveIntentId(cwd, manual.trim() || null)
+			return
+		}
+
+		await setActiveIntentId(cwd, picked.id)
 	},
 	toggleAutoApprove: async () => {
 		const visibleProvider = getVisibleProviderOrLog(outputChannel)
