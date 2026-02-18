@@ -41,7 +41,7 @@ import { codebaseSearchTool } from "../tools/CodebaseSearchTool"
 import { formatResponse } from "../prompts/responses"
 import { sanitizeToolUseId } from "../../utils/tool-id"
 import { hasActiveIntentSelected } from "../intents/activeIntent"
-import { preExecutionHook } from "../../hooks/pre-execution"
+import { runPreToolUseHook } from "../../hooks"
 
 /**
  * Processes and presents assistant message content to the user interface.
@@ -256,7 +256,7 @@ export async function presentAssistantMessage(cline: Task) {
 			// IMPORTANT: Only enforce for complete blocks to avoid streaming loops.
 			// MCP tool calls cannot perform the handshake themselves; they must be blocked until an intent is selected.
 			if (!mcpBlock.partial) {
-				const hookResult = await preExecutionHook({
+				const hookResult = await runPreToolUseHook({
 					cwd: cline.cwd,
 					toolName: "use_mcp_tool",
 					toolArgs: mcpBlock.arguments,
@@ -433,7 +433,7 @@ export async function presentAssistantMessage(cline: Task) {
 			// Pre-execution middleware boundary (Day 2 Hook Engine scaffold).
 			// IMPORTANT: Only enforce for complete blocks to avoid streaming loops.
 			if (!block.partial) {
-				const hookResult = await preExecutionHook({
+				const hookResult = await runPreToolUseHook({
 					cwd: cline.cwd,
 					toolName: block.name as ToolName,
 					toolArgs: (block.nativeArgs ?? block.params) as unknown,
@@ -747,7 +747,7 @@ export async function presentAssistantMessage(cline: Task) {
 
 			switch (block.name) {
 				case "select_active_intent":
-					// Handled by preExecutionHook as a pure interception tool.
+					// Handled by the hook engine (runPreToolUseHook) as a pure interception tool.
 					// If we reach here, treat as a no-op.
 					pushToolResult("(select_active_intent already handled)")
 					break

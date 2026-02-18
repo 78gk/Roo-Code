@@ -1,12 +1,54 @@
-# TRP1 Week 1 — Interim Submission Report (Wednesday)
+<!--
+PDF styling tips:
+- If using VS Code “Markdown PDF”, enable “markdown-pdf.styles” only if needed.
+- Keep code fences and mermaid blocks; they export cleanly.
+-->
 
-**Project:** Architecting the AI‑Native IDE & Intent‑Code Traceability (TRP1 Challenge Week 1)  
-**Codebase fork:** Roo Code (VS Code agent extension)  
-**Repository:** https://github.com/78gk/Roo-Code  
-**PR:** https://github.com/78gk/Roo-Code/pull/1  
+<div style="text-align:center; margin-top: 3rem;">
+
+# B1W1: Architecting the AI-Native IDE & Intent-Code Traceability
+
+## Interim Submission Report — Architecture & Hook System
+
+</div>
+
+<div style="text-align:center; margin-top: 2rem; font-size: 1.05rem;">
+
+**Course/Track:** 10 Academy — TRP1 Intensive Training \\
+**Theme:** Architecting the AI‑Native IDE & Intent‑Code Traceability \\
+**Codebase:** Fork of Roo Code (VS Code agent extension)
+
+</div>
+
+<div style="margin-top: 2.5rem;">
+
+**Author:** _(Kirubel Tewodros)_  
+**Date:** 2026‑02‑18  
+**Fork Repository:** https://github.com/78gk/Roo-Code  
+**Interim PR:** https://github.com/78gk/Roo-Code/pull/1  
 **Branch:** `feature/intent-handshake`  
-**Commit (report authored against):** `86da5dc4d7c032dbab45800440e88eac35e47088`  
-**Date:** 2026‑02‑18
+**Commit (report authored against):** `86da5dc4d7c032dbab45800440e88eac35e47088`
+
+</div>
+
+---
+
+## Interim Deliverables Summary (Wednesday 21:00 UTC)
+
+- **PDF report** exported from this report (`INTERIM_REPORT.md`) and uploaded to the course portal.
+- **GitHub fork** pushed and accessible: https://github.com/78gk/Roo-Code
+- **PR (recommended for review):** https://github.com/78gk/Roo-Code/pull/1
+- **Repository includes:**
+    - `src/hooks/` (hook middleware boundary)
+        - `src/hooks/engine.ts`
+        - `src/hooks/preToolHook.ts`
+        - `src/hooks/postToolHook.ts`
+    - `.orchestration/active_intents.yaml` (sample sidecar)
+    - `ARCHITECTURE_NOTES.md` (Phase 0 findings)
+- **Evidence included in this PDF:**
+    - tool loop + prompt builder insertion points
+    - hook decisions (PreToolUse vs PostToolUse)
+    - at least one architecture diagram + schemas
 
 ---
 
@@ -21,6 +63,13 @@
 7. [Verification & Evidence](#7-verification--evidence)
 8. [Day 3 Execution Checklist (Phase 2)](#8-day-3-execution-checklist-phase-2)
 9. [Known Gaps & Planned Next Steps](#9-known-gaps--planned-next-steps)
+
+---
+
+## List of Figures
+
+- **Figure 1.** Hook engine privilege boundary (User → Webview → Extension Host → Hook Engine → Tool → Filesystem/Terminal)
+- **Figure 2.** Two-stage intent handshake flow (select intent → persist → minimal intent_context → allow subsequent tools)
 
 ---
 
@@ -147,7 +196,7 @@ Post-execution hooks are planned for traceability:
 
 ## 5) Diagrams
 
-### 5.1 Hook engine privilege boundary (User → Webview → Hook → Tool)
+### Figure 1 — Hook engine privilege boundary (User → Webview → Hook → Tool)
 
 ```mermaid
 sequenceDiagram
@@ -181,7 +230,7 @@ sequenceDiagram
   end
 ```
 
-### 5.2 Intent handshake (two-stage)
+### Figure 2 — Intent handshake (two-stage)
 
 ```mermaid
 flowchart TB
