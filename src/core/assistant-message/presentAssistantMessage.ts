@@ -40,6 +40,8 @@ import { codebaseSearchTool } from "../tools/CodebaseSearchTool"
 
 import { formatResponse } from "../prompts/responses"
 import { sanitizeToolUseId } from "../../utils/tool-id"
+import { hasActiveIntentSelected } from "../intents/activeIntent"
+import { runPreToolUseHook } from "../../hooks"
 
 /**
  * Processes and presents assistant message content to the user interface.
@@ -250,6 +252,29 @@ export async function presentAssistantMessage(cline: Task) {
 				}
 			}
 
+			// Pre-execution middleware boundary (Day 2 Hook Engine scaffold).
+			// IMPORTANT: Only enforce for complete blocks to avoid streaming loops.
+			// MCP tool calls cannot perform the handshake themselves; they must be blocked until an intent is selected.
+			if (!mcpBlock.partial) {
+				const hookResult = await runPreToolUseHook({
+					cwd: cline.cwd,
+					toolName: "use_mcp_tool",
+					toolArgs: mcpBlock.arguments,
+				})
+
+				if (hookResult.kind === "blocked") {
+					if (toolCallId) {
+						cline.pushToolResultToUserContent({
+							type: "tool_result",
+							tool_use_id: sanitizeToolUseId(toolCallId),
+							content: formatResponse.toolError(hookResult.toolResult),
+							is_error: true,
+						})
+					}
+					break
+				}
+			}
+
 			// Execute the MCP tool using the same handler as use_mcp_tool
 			// Create a synthetic ToolUse block that the useMcpToolTool can handle
 			const syntheticToolUse: ToolUse<"use_mcp_tool"> = {
@@ -402,6 +427,51 @@ export async function presentAssistantMessage(cline: Task) {
 					is_error: true,
 				})
 
+				break
+			}
+
+			// Pre-execution middleware boundary (Day 2 Hook Engine scaffold).
+			// IMPORTANT: Only enforce for complete blocks to avoid streaming loops.
+			if (!block.partial) {
+				const hookResult = await runPreToolUseHook({
+					cwd: cline.cwd,
+					toolName: block.name as ToolName,
+					toolArgs: (block.nativeArgs ?? block.params) as unknown,
+				})
+
+				if (hookResult.kind === "blocked" || hookResult.kind === "handled") {
+					cline.pushToolResultToUserContent({
+						type: "tool_result",
+						tool_use_id: sanitizeToolUseId(toolCallId),
+						content: formatResponse.toolError(hookResult.toolResult),
+						is_error: hookResult.kind === "blocked",
+					})
+					break
+				}
+			}
+
+			// Legacy gate (kept for safety): do not allow tool execution until an active intent is selected.
+			// IMPORTANT: Only enforce for complete blocks to avoid streaming loops.
+			// Allow the handshake tool itself to run without an active intent.
+			if (
+				!block.partial &&
+				block.name !== "select_active_intent" &&
+				!(await hasActiveIntentSelected(cline.cwd))
+			) {
+				const errorMessage = `No active intent selected. Select an intent (Command Palette: "Roo Code: Select Active Intent") before using tools.`
+				cline.consecutiveMistakeCount++
+				try {
+					cline.recordToolError(block.name as ToolName, errorMessage)
+				} catch {
+					// Best-effort only
+				}
+
+				cline.pushToolResultToUserContent({
+					type: "tool_result",
+					tool_use_id: sanitizeToolUseId(toolCallId),
+					content: formatResponse.toolError(errorMessage),
+					is_error: true,
+				})
 				break
 			}
 
@@ -676,6 +746,11 @@ export async function presentAssistantMessage(cline: Task) {
 			}
 
 			switch (block.name) {
+				case "select_active_intent":
+					// Handled by the hook engine (runPreToolUseHook) as a pure interception tool.
+					// If we reach here, treat as a no-op.
+					pushToolResult("(select_active_intent already handled)")
+					break
 				case "write_to_file":
 					await checkpointSaveAndMark(cline)
 					await writeToFileTool.handle(cline, block as ToolUse<"write_to_file">, {

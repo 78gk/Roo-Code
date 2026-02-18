@@ -11,6 +11,8 @@ import { McpHub } from "../../services/mcp/McpHub"
 import { CodeIndexManager } from "../../services/code-index/manager"
 import { SkillsManager } from "../../services/skills/SkillsManager"
 
+import { getActiveIntentPromptSection } from "../intents/activeIntent"
+
 import type { SystemPromptSettings } from "./types"
 import {
 	getRulesSection,
@@ -82,7 +84,11 @@ async function generatePrompt(
 	// Tools catalog is not included in the system prompt.
 	const toolsCatalog = ""
 
+	const handshakeProtocol = `# Intent Handshake (Mandatory)\nYou are an Intent-Driven Architect. You CANNOT write code or run commands immediately. Your first action in response to a user's request MUST be to analyze the request and call the select_active_intent tool with the most relevant intent_id from the workspace. After you receive <intent_context>, you may proceed with other tools.\n`
+
 	const basePrompt = `${roleDefinition}
+
+${handshakeProtocol}
 
 ${markdownFormattingSection()}
 
@@ -97,6 +103,7 @@ ${skillsSection ? `\n${skillsSection}` : ""}
 ${getRulesSection(cwd, settings)}
 
 ${getSystemInfoSection(cwd)}
+${await getActiveIntentPromptSection(cwd)}
 
 ${getObjectiveSection()}
 
