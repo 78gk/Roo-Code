@@ -1,0 +1,20 @@
+# Active intent registry (scaffold)
+# Schema is owned by /context.md (sidecar). Keep human-editable.
+active_intent_id: null
+intents:
+  - id: "INT-001"
+    name: "Refactor Authentication Middleware"
+    owned_scope:
+      - "roo-code/src/**"
+    constraints:
+      - "Keep injected intent context minimal (constraints + scope only)."
+      - "Do not modify tool loop without going through the hook boundary."
+  - id: day2-handshake
+    title: "Day 2: Intent Handshake"
+    summary: "Implement two-stage intent handshake + deterministic pre-tool gating + minimal intent context injection."
+    scope:
+      paths:
+        - "roo-code/src/**"
+        - ".orchestration/**"
+    constraints:
+      - "Keep injected intent context minimal (constraints + scope only)."
