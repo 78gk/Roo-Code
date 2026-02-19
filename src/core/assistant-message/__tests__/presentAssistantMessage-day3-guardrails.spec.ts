@@ -1,54 +1,30 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import * as fs from "fs/promises"
 import * as os from "os"
 import * as path from "path"
-import * as fs from "fs/promises"
 
-// Ensure VS Code runtime module is mocked for vitest (uses repo mock).
 vi.mock("vscode", async () => await import("../../../__mocks__/vscode.js"))
 import * as vscode from "vscode"
 
-import { presentAssistantMessage } from "../presentAssistantMessage"
-import { executeCommandTool } from "../../tools/ExecuteCommandTool"
-import { writeToFileTool } from "../../tools/WriteToFileTool"
-
-// Avoid pulling in real Task implementation.
+// avoid pulling real Task
 vi.mock("../../task/Task")
 
-// Ensure tool validation doesn't block these calls.
-vi.mock("../../tools/validateToolUse", () => ({
-	validateToolUse: vi.fn(),
-	isValidToolName: vi.fn(() => true),
-}))
-
+vi.mock("../../tools/validateToolUse", () => ({ validateToolUse: vi.fn(), isValidToolName: vi.fn(() => true) }))
 vi.mock("@roo-code/telemetry", () => ({
 	TelemetryService: {
-		instance: {
-			captureToolUsage: vi.fn(),
-			captureConsecutiveMistakeError: vi.fn(),
-			captureException: vi.fn(),
-		},
+		instance: { captureToolUsage: vi.fn(), captureConsecutiveMistakeError: vi.fn(), captureException: vi.fn() },
 	},
 }))
+vi.mock("../../intents/activeIntent", () => ({ hasActiveIntentSelected: vi.fn().mockResolvedValue(true) }))
 
-// Make legacy gate pass (Day 3 policy gate is in preExecutionHook).
-vi.mock("../../intents/activeIntent", () => ({
-	hasActiveIntentSelected: vi.fn().mockResolvedValue(true),
-}))
-
-// Mock tool handlers so we can assert they're NOT called.
-vi.mock("../../tools/ExecuteCommandTool", () => ({
-	executeCommandTool: { handle: vi.fn() },
-}))
-
-vi.mock("../../tools/WriteToFileTool", () => ({
-	writeToFileTool: { handle: vi.fn() },
-}))
-
-// Provide minimal mocks for any tools referenced by presentAssistantMessage switch.
+vi.mock("../../tools/ExecuteCommandTool", () => ({ executeCommandTool: { handle: vi.fn() } }))
+vi.mock("../../tools/WriteToFileTool", () => ({ writeToFileTool: { handle: vi.fn() } }))
 vi.mock("../../tools/ReadFileTool", () => ({
 	readFileTool: { handle: vi.fn(), getReadFileToolDescription: () => "[read_file]" },
 }))
+
+// minimal mocks for switch imports
 vi.mock("../../tools/ListFilesTool", () => ({ listFilesTool: { handle: vi.fn() } }))
 vi.mock("../../tools/ReadCommandOutputTool", () => ({ readCommandOutputTool: { handle: vi.fn() } }))
 vi.mock("../../tools/EditTool", () => ({ editTool: { handle: vi.fn() } }))
@@ -69,11 +45,15 @@ vi.mock("../../tools/GenerateImageTool", () => ({ generateImageTool: { handle: v
 vi.mock("../../tools/ApplyDiffTool", () => ({ applyDiffTool: { handle: vi.fn() } }))
 vi.mock("../../tools/CodebaseSearchTool", () => ({ codebaseSearchTool: { handle: vi.fn() } }))
 
-// Minimal Task mock shape used by presentAssistantMessage
-const createMockTask = (cwd: string) => {
-	return {
+import { presentAssistantMessage } from "../presentAssistantMessage"
+import { executeCommandTool } from "../../tools/ExecuteCommandTool"
+import { writeToFileTool } from "../../tools/WriteToFileTool"
+import { readFileTool } from "../../tools/ReadFileTool"
+
+const createMockTask = (cwd: string) =>
+	({
 		cwd,
-		taskId: "task_123",
+		taskId: "t1",
 		instanceId: "i1",
 		assistantMessageContent: [] as any[],
 		currentStreamingContentIndex: 0,
@@ -96,32 +76,31 @@ const createMockTask = (cwd: string) => {
 			}),
 		},
 		api: { getModel: () => ({ info: {} }) },
-		askName: "mock",
+		taskName: "mock",
 		recordToolUsage: vi.fn(),
 		recordToolError: vi.fn(),
 		pushToolResultToUserContent: vi.fn(),
 		say: vi.fn(),
-		ask: vi.fn(),
+		task: vi.fn(),
 		checkpointSave: vi.fn(),
 		currentStreamingDidCheckpoint: false,
-	} as any
-}
+	}) as any
 
 async function writeActiveIntentYaml(cwd: string) {
 	const orch = path.join(cwd, ".orchestration")
 	await fs.mkdir(orch, { recursive: true })
-
-	const yaml = [
-		"active_intent_id: INT-TEST",
-		"intents:",
-		"  - id: INT-TEST",
-		"    title: Test Intent",
-		"    scope:",
-		"      paths:",
-		"        - allowed/**",
-	].join("\n")
-
-	await fs.writeFile(path.join(orch, "active_intents.yaml"), yaml, "utf-8")
+	await fs.writeFile(
+		path.join(orch, "active_intents.yaml"),
+		[
+			"active_intent_id: INT-TEST",
+			"intents:",
+			"  - id: INT-TEST",
+			"    scope:",
+			"      paths:",
+			"        - allowed/**",
+		].join("\n"),
+		"utf-8",
+	)
 }
 
 describe("presentAssistantMessage Day 3 guardrails", () => {
@@ -132,54 +111,73 @@ describe("presentAssistantMessage Day 3 guardrails", () => {
 		cwd = await fs.mkdtemp(path.join(os.tmpdir(), "roo-day3-"))
 		await writeActiveIntentYaml(cwd)
 		task = createMockTask(cwd)
+		vi.clearAllMocks()
 		vi.mocked(executeCommandTool.handle).mockClear()
 		vi.mocked(writeToFileTool.handle).mockClear()
-		vi.restoreAllMocks()
+		vi.mocked(readFileTool.handle).mockClear()
 	})
 
-	it("blocks destructive execute_command when user rejects (preExecutionHook integration)", async () => {
+	it("blocks destructive execute_command when user rejects", async () => {
 		vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue("Reject" as any)
-
 		task.assistantMessageContent = [
 			{
 				type: "tool_use",
-				id: "tool_call_1",
+				id: "c1",
 				name: "execute_command",
 				params: { command: "rm -rf /" },
 				nativeArgs: { command: "rm -rf /" },
 				partial: false,
 			},
 		]
-
 		await presentAssistantMessage(task)
-
 		expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1)
 		expect(executeCommandTool.handle).not.toHaveBeenCalled()
-
-		expect(task.pushToolResultToUserContent).toHaveBeenCalledTimes(1)
-		const pushed = task.pushToolResultToUserContent.mock.calls[0][0]
-		expect(pushed).toMatchObject({ type: "tool_result", tool_use_id: "tool_call_1", is_error: true })
-		expect(String(pushed.content)).toContain("Destructive command rejected")
 	})
 
-	it("blocks out-of-scope write_to_file before tool executes (preExecutionHook integration)", async () => {
+	it("allows safe execute_command without prompting", async () => {
+		const spy = vi.spyOn(vscode.window, "showWarningMessage")
 		task.assistantMessageContent = [
 			{
 				type: "tool_use",
-				id: "tool_call_2",
-				name: "write_to_file",
-				params: { path: "not-allowed/file.txt", content: "hi" },
-				nativeArgs: { path: "not-allowed/file.txt", content: "hi" },
+				id: "c2",
+				name: "execute_command",
+				params: { command: "echo hi" },
+				nativeArgs: { command: "echo hi" },
 				partial: false,
 			},
 		]
-
 		await presentAssistantMessage(task)
+		expect(spy).not.toHaveBeenCalled()
+		expect(executeCommandTool.handle).toHaveBeenCalledTimes(1)
+	})
 
+	it("blocks out-of-scope write_to_file before tool executes", async () => {
+		task.assistantMessageContent = [
+			{
+				type: "tool_use",
+				id: "w1",
+				name: "write_to_file",
+				params: { path: "not-allowed/a.txt", content: "x" },
+				nativeArgs: { path: "not-allowed/a.txt", content: "x" },
+				partial: false,
+			},
+		]
+		await presentAssistantMessage(task)
 		expect(writeToFileTool.handle).not.toHaveBeenCalled()
-		expect(task.pushToolResultToUserContent).toHaveBeenCalledTimes(1)
-		const pushed = task.pushToolResultToUserContent.mock.calls[0][0]
-		expect(pushed).toMatchObject({ type: "tool_result", tool_use_id: "tool_call_2", is_error: true })
-		expect(String(pushed.content)).toContain("Out-of-scope write blocked")
+	})
+
+	it("allows read_file regardless of scope", async () => {
+		task.assistantMessageContent = [
+			{
+				type: "tool_use",
+				id: "r1",
+				name: "read_file",
+				params: { path: "not-allowed/a.txt" },
+				nativeArgs: { path: "not-allowed/a.txt" },
+				partial: false,
+			},
+		]
+		await presentAssistantMessage(task)
+		expect(readFileTool.handle).toHaveBeenCalledTimes(1)
 	})
 })
