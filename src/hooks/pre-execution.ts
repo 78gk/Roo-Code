@@ -5,7 +5,12 @@ import * as yaml from "yaml"
 
 import type { ToolName } from "@roo-code/types"
 
+import * as vscode from "vscode"
+
 import { fileExistsAtPath, createDirectoriesForFile } from "../utils/fs"
+
+import { isPathWithinScope } from "./policy/intentScope"
+import { classifyCommandRisk } from "./policy/commandRisk"
 
 const ACTIVE_INTENTS_RELATIVE_PATH = path.join(".orchestration", "active_intents.yaml")
 
@@ -34,6 +39,46 @@ type ActiveIntentsFileAny = {
 	active_intents?: IntentFromPlanDoc[]
 	// Repo shape
 	intents?: IntentFromRepoSchema[]
+}
+
+const WRITE_TOOLS_REQUIRING_SCOPE_CHECK: ReadonlySet<ToolName> = new Set([
+	"write_to_file",
+	"apply_diff",
+	"edit",
+	"edit_file",
+	"search_and_replace",
+	"search_replace",
+	"apply_patch",
+	"generate_image",
+])
+
+function getToolRelPath(toolName: ToolName, toolArgs: unknown): string | null {
+	const args = toolArgs as any
+	switch (toolName) {
+		case "write_to_file":
+		case "apply_diff":
+		case "generate_image":
+			return typeof args?.path === "string" ? args.path : null
+		case "edit":
+		case "edit_file":
+		case "search_and_replace":
+		case "search_replace":
+			return typeof args?.file_path === "string" ? args.file_path : null
+		case "apply_patch":
+			return typeof args?.path === "string" ? args.path : null
+		default:
+			return null
+	}
+}
+
+type ActiveIntentResolved = { id: string; title: string; constraints: string[]; scopePaths: string[] }
+
+function resolveActiveIntent(data: ActiveIntentsFileAny): ActiveIntentResolved | null {
+	const activeId = data.active_intent_id
+	if (!activeId) return null
+	const intent = findIntent(data, activeId)
+	if (!intent) return null
+	return { id: activeId, ...intent }
 }
 
 export type PreExecutionHookResult =
@@ -120,12 +165,53 @@ export async function preExecutionHook(args: {
 	// Gatekeeper: block *all* tools except the handshake tool until an intent is selected.
 	if (toolName !== "select_active_intent") {
 		const { data } = await readActiveIntentsFile(cwd)
-		const activeId = data.active_intent_id
-		if (!activeId || !findIntent(data, activeId)) {
+		const active = resolveActiveIntent(data)
+
+		if (!active) {
 			return {
 				kind: "blocked",
 				toolResult:
 					"Error: You must first declare an active intent using select_active_intent(intent_id) before performing any other actions.",
+			}
+		}
+
+		// Day 3: Intent-owned scope enforcement for write tools.
+		if (WRITE_TOOLS_REQUIRING_SCOPE_CHECK.has(toolName)) {
+			const relPath = getToolRelPath(toolName, args.toolArgs)
+			if (relPath && active.scopePaths.length > 0) {
+				const allowed = isPathWithinScope({ cwd, relPath, scopeGlobs: active.scopePaths })
+				if (!allowed) {
+					return {
+						kind: "blocked",
+						toolResult: `Error: Out-of-scope write blocked. Path '${relPath}' is not within the active intent scope. Allowed scope globs: ${active.scopePaths.join(", ")}`,
+					}
+				}
+			} else if (relPath && active.scopePaths.length === 0) {
+				return {
+					kind: "blocked",
+					toolResult:
+						"Error: Out-of-scope write blocked. Active intent has no declared owned_scope/scope.paths; refusing to write.",
+				}
+			}
+		}
+
+		// Day 3: HITL gating for destructive commands.
+		if (toolName === "execute_command") {
+			const command = (args.toolArgs as any)?.command
+			if (typeof command === "string" && classifyCommandRisk(command) === "destructive") {
+				const selection = await vscode.window.showWarningMessage(
+					`Destructive command requested: ${command}`,
+					{ modal: true },
+					"Approve",
+					"Reject",
+				)
+
+				if (selection !== "Approve") {
+					return {
+						kind: "blocked",
+						toolResult: `Error: Destructive command rejected by user: ${command}`,
+					}
+				}
 			}
 		}
 

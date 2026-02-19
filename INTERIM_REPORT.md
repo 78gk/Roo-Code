@@ -198,51 +198,19 @@ Post-execution hooks are planned for traceability:
 
 ### Figure 1 — Hook engine privilege boundary (User → Webview → Hook → Tool)
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant U as User
-  participant W as Webview UI
-  participant EH as Extension Host
-  participant H as Hook Engine (preExecutionHook)
-  participant T as Tool التنفيذ (write/command/etc.)
-  participant FS as Filesystem/Terminal
+![Figure 1 — Hook engine privilege boundary](report-assets/figure-1-hook-boundary.png)
 
-  U->>W: Prompt
-  W->>EH: message
-  EH->>EH: Build system prompt + tool schema
-  EH->>EH: LLM request
-  EH-->>EH: assistant tool_use(name,args)
-
-  EH->>H: preExecutionHook(toolName, toolArgs, cwd)
-  alt No active intent AND toolName != select_active_intent
-    H-->>EH: Block (governance error)
-    EH-->>W: tool_result(error)
-  else toolName == select_active_intent
-    H-->>EH: Persist active_intent_id + return <intent_context>
-    EH-->>W: tool_result(<intent_context>)
-  else Active intent already selected
-    H-->>EH: Allow
-    EH->>T: Execute tool
-    T->>FS: Side effects (write/command)
-    T-->>EH: tool_result
-    EH-->>W: tool_result
-  end
 ```
 
 ### Figure 2 — Intent handshake (two-stage)
+```
 
-```mermaid
-flowchart TB
-  A[User prompt] --> B[Model must call select_active_intent]
-  B --> C{Hook loads active_intents.yaml}
-  C -->|valid| D[Set active_intent_id]
-  D --> E[Return minimal <intent_context>]
-  E --> F[Subsequent tools allowed]
-  C -->|invalid| G[Return explicit error tool_result]
+![Figure 2 — Intent handshake](report-assets/figure-1-hook-boundary.png)
+
 ```
 
 ---
+```
 
 ## 6) Schemas
 
