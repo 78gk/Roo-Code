@@ -6,6 +6,7 @@ import { appendAgentTraceEntry } from "./trace/agentTrace"
 import { recordCodebaseSearchSnapshots } from "./locking/codebaseSearchSnapshots"
 import { recordSearchFilesSnapshots } from "./locking/searchFilesSnapshots"
 import { recordAccessMcpResourceSnapshots } from "./locking/accessMcpResourceSnapshots"
+import { recordListFilesSnapshots } from "./locking/listFilesSnapshots"
 
 // Day 4: post-tool middleware boundary for traceability.
 
@@ -40,6 +41,13 @@ export const postToolHook: PostToolUseHook = async (args) => {
 			taskId: args.taskId,
 			toolName: args.toolName,
 			toolArgs: args.toolArgs,
+		})
+		await recordListFilesSnapshots({
+			cwd: args.cwd,
+			taskId: args.taskId,
+			toolName: args.toolName,
+			toolArgs: args.toolArgs,
+			toolResult: args.toolResult,
 		})
 	} catch {
 		// best-effort
