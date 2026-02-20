@@ -4,6 +4,8 @@ import type { ToolName } from "@roo-code/types"
 
 import { appendAgentTraceEntry } from "./trace/agentTrace"
 import { recordCodebaseSearchSnapshots } from "./locking/codebaseSearchSnapshots"
+import { recordSearchFilesSnapshots } from "./locking/searchFilesSnapshots"
+import { recordAccessMcpResourceSnapshots } from "./locking/accessMcpResourceSnapshots"
 
 // Day 4: post-tool middleware boundary for traceability.
 
@@ -26,6 +28,18 @@ export const postToolHook: PostToolUseHook = async (args) => {
 			taskId: args.taskId,
 			toolName: args.toolName,
 			toolResult: args.toolResult,
+		})
+		await recordSearchFilesSnapshots({
+			cwd: args.cwd,
+			taskId: args.taskId,
+			toolName: args.toolName,
+			toolResult: args.toolResult,
+		})
+		await recordAccessMcpResourceSnapshots({
+			cwd: args.cwd,
+			taskId: args.taskId,
+			toolName: args.toolName,
+			toolArgs: args.toolArgs,
 		})
 	} catch {
 		// best-effort
