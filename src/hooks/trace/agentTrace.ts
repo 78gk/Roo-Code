@@ -9,6 +9,7 @@ import type { ToolName } from "@roo-code/types"
 
 import { createDirectoriesForFile, fileExistsAtPath } from "../../utils/fs"
 import { sha256Hash } from "../../utils/hash"
+import { extractAddedBlockFromUnifiedDiff } from "./unifiedDiff"
 
 const execFileAsync = promisify(execFile)
 
@@ -68,8 +69,15 @@ function getHashedContentForTool(toolName: ToolName, toolArgs: unknown): string 
 		return typeof args?.content === "string" ? args.content : null
 	}
 	if (toolName === "apply_diff") {
-		// We don't have the final patched region here; hash the diff payload for now.
-		return typeof args?.diff === "string" ? args.diff : null
+		const diff = typeof args?.diff === "string" ? args.diff : null
+		if (!diff) return null
+
+		// Prefer hashing the post-patch content block: concatenate all added lines across hunks.
+		const extracted = extractAddedBlockFromUnifiedDiff(diff)
+		if (extracted.hasAddedLines) return extracted.addedText
+
+		// If no added lines exist, fall back (caller may choose to hash final file content instead).
+		return null
 	}
 	// Best-effort: if toolArgs includes a direct content field.
 	return typeof args?.content === "string" ? args.content : null
@@ -87,6 +95,8 @@ async function getGitRevisionId(cwd: string): Promise<string | null> {
 
 export type AgentTraceAppendInput = {
 	cwd: string
+	taskId: string
+	modelId: string
 	toolName: ToolName
 	toolArgs: unknown
 	toolResult: string
@@ -111,7 +121,16 @@ export async function appendAgentTraceEntry(input: AgentTraceAppendInput): Promi
 	// Defense-in-depth: never append a trace entry that contradicts active intent.
 	if (toolIntentId && toolIntentId.length > 0 && toolIntentId !== active) return
 
-	const contentForHash = getHashedContentForTool(input.toolName, input.toolArgs)
+	let contentForHash = getHashedContentForTool(input.toolName, input.toolArgs)
+	if (contentForHash === null && input.toolName === "apply_diff") {
+		// Fallback: hash the final file content when the diff has no additions (pure deletions/context changes).
+		try {
+			const abs = path.join(input.cwd, relPath)
+			contentForHash = await fs.readFile(abs, "utf-8")
+		} catch {
+			return
+		}
+	}
 	if (contentForHash === null) return
 
 	const contentHash = sha256Hash(contentForHash)
@@ -130,13 +149,13 @@ export async function appendAgentTraceEntry(input: AgentTraceAppendInput): Promi
 				relative_path: relPath,
 				conversations: [
 					{
-						url: "session_log_id",
+						url: input.taskId,
 						tool: {
 							name: input.toolName,
 						},
 						contributor: {
 							entity_type: "AI",
-							model_identifier: "unknown",
+							model_identifier: input.modelId,
 						},
 						ranges: [
 							{

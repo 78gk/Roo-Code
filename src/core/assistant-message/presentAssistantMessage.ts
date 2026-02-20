@@ -555,6 +555,8 @@ export async function presentAssistantMessage(cline: Task) {
 					void hookEngine
 						.postToolUse({
 							cwd: cline.cwd,
+							taskId: cline.taskId,
+							modelId: cline.api.getModel().id,
 							toolName: block.name as ToolName,
 							toolArgs: (block.nativeArgs ?? block.params) as unknown,
 							toolResult: resultContent,

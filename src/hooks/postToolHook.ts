@@ -23,6 +23,8 @@ export const postToolHook: PostToolUseHook = async (args) => {
 	try {
 		await appendAgentTraceEntry({
 			cwd: args.cwd,
+			taskId: args.taskId,
+			modelId: args.modelId,
 			toolName: args.toolName,
 			toolArgs: args.toolArgs,
 			toolResult: args.toolResult,
