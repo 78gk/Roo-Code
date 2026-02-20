@@ -435,6 +435,7 @@ export async function presentAssistantMessage(cline: Task) {
 			if (!block.partial) {
 				const hookResult = await runPreToolUseHook({
 					cwd: cline.cwd,
+					taskId: cline.taskId,
 					toolName: block.name as ToolName,
 					toolArgs: (block.nativeArgs ?? block.params) as unknown,
 				})

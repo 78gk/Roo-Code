@@ -8,6 +8,8 @@ export type HookError = {
 
 export type PreToolUseArgs = {
 	cwd: string
+	/** Stable task/session identifier for trace linkage */
+	taskId: string
 	toolName: ToolName
 	toolArgs: unknown
 }

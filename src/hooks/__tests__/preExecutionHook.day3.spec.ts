@@ -54,8 +54,17 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 			`active_intent_id: intent_1\nintents:\n  - id: intent_1\n    title: Test\n    scope:\n      paths:\n        - src/**\n`,
 		)
 
+		// record read snapshot for optimistic locking
+		await preExecutionHook({
+			cwd: "/repo",
+			taskId: "task_1",
+			toolName: "read_file",
+			toolArgs: { path: "README.md" },
+		})
+
 		const result = await preExecutionHook({
 			cwd: "/repo",
+			taskId: "task_1",
 			toolName: "write_to_file",
 			toolArgs: { mutation_class: "AST_REFACTOR", path: "src/index.ts", content: "x" },
 		})
@@ -71,6 +80,7 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 
 		const result = await preExecutionHook({
 			cwd: "/repo",
+			taskId: "task_1",
 			toolName: "write_to_file",
 			toolArgs: { intent_id: "intent_1", path: "src/index.ts", content: "x" },
 		})
@@ -104,8 +114,17 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 			`active_intent_id: intent_1\nintents:\n  - id: intent_1\n    title: Test\n    scope:\n      paths:\n        - src/**\n`,
 		)
 
+		// record read snapshot for optimistic locking
+		await preExecutionHook({
+			cwd: "/repo",
+			taskId: "task_1",
+			toolName: "read_file",
+			toolArgs: { path: "src/index.ts" },
+		})
+
 		const result = await preExecutionHook({
 			cwd: "/repo",
+			taskId: "task_1",
 			toolName: "write_to_file",
 			toolArgs: {
 				intent_id: "intent_1",

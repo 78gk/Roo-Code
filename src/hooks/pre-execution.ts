@@ -11,6 +11,8 @@ import { fileExistsAtPath, createDirectoriesForFile } from "../utils/fs"
 
 import { isPathWithinScope } from "./policy/intentScope"
 import { classifyCommandRisk } from "./policy/commandRisk"
+import { readHashStore } from "./locking/readHashStore"
+import { sha256Hash } from "../utils/hash"
 
 const ACTIVE_INTENTS_RELATIVE_PATH = path.join(".orchestration", "active_intents.yaml")
 
@@ -157,10 +159,11 @@ function buildIntentContextXml(input: {
 
 export async function preExecutionHook(args: {
 	cwd: string
+	taskId: string
 	toolName: ToolName
 	toolArgs: unknown
 }): Promise<PreExecutionHookResult> {
-	const { cwd, toolName } = args
+	const { cwd, toolName, taskId } = args
 
 	// Gatekeeper: block *all* tools except the handshake tool until an intent is selected.
 	if (toolName !== "select_active_intent") {
@@ -172,6 +175,25 @@ export async function preExecutionHook(args: {
 				kind: "blocked",
 				toolResult:
 					"Error: You must first declare an active intent using select_active_intent(intent_id) before performing any other actions.",
+			}
+		}
+
+		// Phase 4 (Day 5): Optimistic locking.
+		// Record read-time hash for read_file so later writes can detect staleness.
+		if (toolName === "read_file") {
+			const relPath = (args.toolArgs as any)?.path
+			if (typeof relPath === "string" && relPath.trim().length > 0) {
+				try {
+					const abs = path.join(cwd, relPath)
+					const content = await fs.readFile(abs, "utf-8")
+					const hash = sha256Hash(content)
+					readHashStore.set(
+						{ taskId, intentId: active.id, relPath },
+						{ hash, capturedAt: new Date().toISOString(), toolName },
+					)
+				} catch {
+					// If read fails, do not record.
+				}
 			}
 		}
 
@@ -203,8 +225,9 @@ export async function preExecutionHook(args: {
 				}
 			}
 
-			// Day 3: Intent-owned scope enforcement for write tools.
 			const relPath = getToolRelPath(toolName, args.toolArgs)
+
+			// Day 3: Intent-owned scope enforcement for write tools.
 			if (relPath && active.scopePaths.length > 0) {
 				const allowed = isPathWithinScope({ cwd, relPath, scopeGlobs: active.scopePaths })
 				if (!allowed) {
@@ -218,6 +241,34 @@ export async function preExecutionHook(args: {
 					kind: "blocked",
 					toolResult:
 						"Error: Out-of-scope write blocked. Active intent has no declared owned_scope/scope.paths; refusing to write.",
+				}
+			}
+
+			// Phase 4 (Day 5): stale write rejection.
+			if (relPath) {
+				const stored = readHashStore.get({ taskId, intentId: active.id, relPath })
+				if (!stored) {
+					return {
+						kind: "blocked",
+						toolResult: `Error: Stale File. No read snapshot recorded for '${relPath}'. You must call read_file on this path before writing to it.`,
+					}
+				}
+
+				try {
+					const abs = path.join(cwd, relPath)
+					const current = await fs.readFile(abs, "utf-8")
+					const currentHash = sha256Hash(current)
+					if (currentHash !== stored.hash) {
+						return {
+							kind: "blocked",
+							toolResult: `Error: Stale File. '${relPath}' has changed since last read. Re-read the file (read_file) and re-apply your change.`,
+						}
+					}
+				} catch {
+					return {
+						kind: "blocked",
+						toolResult: `Error: Stale File. Unable to verify current state of '${relPath}'. Re-read and retry.`,
+					}
 				}
 			}
 		}
