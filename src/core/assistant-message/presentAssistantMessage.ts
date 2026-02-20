@@ -258,6 +258,7 @@ export async function presentAssistantMessage(cline: Task) {
 			if (!mcpBlock.partial) {
 				const hookResult = await runPreToolUseHook({
 					cwd: cline.cwd,
+					taskId: cline.taskId,
 					toolName: "use_mcp_tool",
 					toolArgs: mcpBlock.arguments,
 				})

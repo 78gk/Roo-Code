@@ -36,6 +36,7 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 
 		const result = await preExecutionHook({
 			cwd: "/repo",
+			taskId: "task_1",
 			toolName: "write_to_file",
 			toolArgs: {
 				intent_id: "intent_1",
@@ -46,7 +47,9 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 		})
 
 		expect(result.kind).toBe("blocked")
-		expect(result.toolResult).toContain("Out-of-scope write blocked")
+		if (result.kind === "blocked") {
+			expect(result.toolResult).toContain("Out-of-scope write blocked")
+		}
 	})
 
 	it("blocks write tool when intent_id is missing", async () => {
@@ -70,7 +73,9 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 		})
 
 		expect(result.kind).toBe("blocked")
-		expect(result.toolResult).toContain("must include intent_id")
+		if (result.kind === "blocked") {
+			expect(result.toolResult).toContain("must include intent_id")
+		}
 	})
 
 	it("blocks write tool when mutation_class is missing/invalid", async () => {
@@ -86,7 +91,9 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 		})
 
 		expect(result.kind).toBe("blocked")
-		expect(result.toolResult).toContain("must include mutation_class")
+		if (result.kind === "blocked") {
+			expect(result.toolResult).toContain("must include mutation_class")
+		}
 	})
 
 	it("blocks write tool when intent_id does not match active intent", async () => {
@@ -96,6 +103,7 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 
 		const result = await preExecutionHook({
 			cwd: "/repo",
+			taskId: "task_1",
 			toolName: "write_to_file",
 			toolArgs: {
 				intent_id: "intent_2",
@@ -106,7 +114,9 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 		})
 
 		expect(result.kind).toBe("blocked")
-		expect(result.toolResult).toContain("intent_id mismatch")
+		if (result.kind === "blocked") {
+			expect(result.toolResult).toContain("intent_id mismatch")
+		}
 	})
 
 	it("allows write tool when path is within active intent scope", async () => {
@@ -145,13 +155,16 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 
 		const result = await preExecutionHook({
 			cwd: "/repo",
+			taskId: "task_1",
 			toolName: "execute_command",
 			toolArgs: { command: "rm -rf /" },
 		})
 
 		expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1)
 		expect(result.kind).toBe("blocked")
-		expect(result.toolResult).toContain("rejected")
+		if (result.kind === "blocked") {
+			expect(result.toolResult).toContain("rejected")
+		}
 	})
 
 	it("prompts for approval on destructive execute_command; approve continues", async () => {
@@ -162,12 +175,13 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 
 		const result = await preExecutionHook({
 			cwd: "/repo",
+			taskId: "task_1",
 			toolName: "execute_command",
 			toolArgs: { command: "rm -rf dist" },
 		})
 
 		expect(vscode.window.showWarningMessage).toHaveBeenCalledTimes(1)
-		expect(result).toEqual({ kind: "continue" })
+		expect(result.kind).toBe("continue")
 	})
 
 	it("does not prompt for approval on safe execute_command", async () => {
@@ -177,6 +191,7 @@ describe("preExecutionHook Day 3+4 guardrails", () => {
 
 		const result = await preExecutionHook({
 			cwd: "/repo",
+			taskId: "task_1",
 			toolName: "execute_command",
 			toolArgs: { command: "git status" },
 		})

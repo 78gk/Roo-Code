@@ -62,6 +62,8 @@ export const toolParamNames = [
 	"operations", // search_and_replace parameter for multiple operations
 	"patch", // apply_patch parameter
 	"file_path", // search_replace and edit_file parameter
+	"intent_id",
+	"mutation_class",
 	"old_string", // search_replace and edit_file parameter
 	"new_string", // search_replace and edit_file parameter
 	"replace_all", // edit tool parameter for replacing all occurrences

@@ -152,15 +152,36 @@ describe("presentAssistantMessage Day 3 guardrails", () => {
 	})
 
 	it("blocks out-of-scope write_to_file before tool executes", async () => {
+		// record snapshot for optimistic locking (even though the write will be blocked by scope)
 		task.assistantMessageContent = [
 			{
 				type: "tool_use",
-				id: "w1",
-				name: "write_to_file",
-				params: { path: "not-allowed/a.txt", content: "x" },
-				nativeArgs: { path: "not-allowed/a.txt", content: "x" },
+				id: "r-snap",
+				name: "read_file",
+				params: { path: "not-allowed/a.txt" },
+				nativeArgs: { path: "not-allowed/a.txt" },
 				partial: false,
 			},
+			...[
+				{
+					type: "tool_use",
+					id: "w1",
+					name: "write_to_file",
+					params: {
+						intent_id: "INT-TEST",
+						mutation_class: "AST_REFACTOR",
+						path: "not-allowed/a.txt",
+						content: "x",
+					},
+					nativeArgs: {
+						intent_id: "INT-TEST",
+						mutation_class: "AST_REFACTOR",
+						path: "not-allowed/a.txt",
+						content: "x",
+					},
+					partial: false,
+				},
+			],
 		]
 		await presentAssistantMessage(task)
 		expect(writeToFileTool.handle).not.toHaveBeenCalled()
