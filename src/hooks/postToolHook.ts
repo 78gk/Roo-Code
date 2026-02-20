@@ -3,6 +3,7 @@ import type { PostToolUseHook } from "./types"
 import type { ToolName } from "@roo-code/types"
 
 import { appendAgentTraceEntry } from "./trace/agentTrace"
+import { recordCodebaseSearchSnapshots } from "./locking/codebaseSearchSnapshots"
 
 // Day 4: post-tool middleware boundary for traceability.
 
@@ -18,6 +19,18 @@ const WRITE_TOOLS: ReadonlySet<ToolName> = new Set([
 ])
 
 export const postToolHook: PostToolUseHook = async (args) => {
+	// Record read snapshots from other read sources (Phase 4 extension).
+	try {
+		await recordCodebaseSearchSnapshots({
+			cwd: args.cwd,
+			taskId: args.taskId,
+			toolName: args.toolName,
+			toolResult: args.toolResult,
+		})
+	} catch {
+		// best-effort
+	}
+
 	if (!WRITE_TOOLS.has(args.toolName)) return
 
 	try {
