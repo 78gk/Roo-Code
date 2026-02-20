@@ -88,18 +88,33 @@ export type ToolParamName = (typeof toolParamNames)[number]
  * Type map defining the native (typed) argument structure for each tool.
  * Tools not listed here will fall back to `any` for backward compatibility.
  */
+type IntentAttributionFields = {
+	intent_id: string
+	mutation_class: "AST_REFACTOR" | "INTENT_EVOLUTION"
+}
+
 export type NativeToolArgs = {
 	access_mcp_resource: { server_name: string; uri: string }
 	read_file: import("@roo-code/types").ReadFileToolParams
 	read_command_output: { artifact_id: string; search?: string; offset?: number; limit?: number }
 	attempt_completion: { result: string }
 	execute_command: { command: string; cwd?: string }
-	apply_diff: { path: string; diff: string }
-	edit: { file_path: string; old_string: string; new_string: string; replace_all?: boolean }
-	search_and_replace: { file_path: string; old_string: string; new_string: string; replace_all?: boolean }
-	search_replace: { file_path: string; old_string: string; new_string: string }
-	edit_file: { file_path: string; old_string: string; new_string: string; expected_replacements?: number }
-	apply_patch: { patch: string }
+	apply_diff: IntentAttributionFields & { path: string; diff: string }
+	edit: IntentAttributionFields & { file_path: string; old_string: string; new_string: string; replace_all?: boolean }
+	search_and_replace: IntentAttributionFields & {
+		file_path: string
+		old_string: string
+		new_string: string
+		replace_all?: boolean
+	}
+	search_replace: IntentAttributionFields & { file_path: string; old_string: string; new_string: string }
+	edit_file: IntentAttributionFields & {
+		file_path: string
+		old_string: string
+		new_string: string
+		expected_replacements?: number
+	}
+	apply_patch: IntentAttributionFields & { patch: string }
 	list_files: { path: string; recursive?: boolean }
 	new_task: { mode: string; message: string; todos?: string }
 	ask_followup_question: {
@@ -114,7 +129,7 @@ export type NativeToolArgs = {
 	switch_mode: { mode_slug: string; reason: string }
 	update_todo_list: { todos: string }
 	use_mcp_tool: { server_name: string; tool_name: string; arguments?: Record<string, unknown> }
-	write_to_file: { path: string; content: string }
+	write_to_file: IntentAttributionFields & { path: string; content: string }
 	select_active_intent: { intent_id: string | null }
 	// Add more tools as they are migrated to native protocol
 }
@@ -195,7 +210,7 @@ export interface ReadFileToolUse extends ToolUse<"read_file"> {
 
 export interface WriteToFileToolUse extends ToolUse<"write_to_file"> {
 	name: "write_to_file"
-	params: Partial<Pick<Record<ToolParamName, string>, "path" | "content">>
+	params: Partial<Pick<Record<ToolParamName, string>, "path" | "content" | "intent_id" | "mutation_class">>
 }
 
 export interface CodebaseSearchToolUse extends ToolUse<"codebase_search"> {

@@ -27,6 +27,17 @@ const search_replace = {
 		parameters: {
 			type: "object",
 			properties: {
+				intent_id: {
+					type: "string",
+					description:
+						"The active intent ID this change is attributable to (must match the currently selected active intent).",
+				},
+				mutation_class: {
+					type: "string",
+					enum: ["AST_REFACTOR", "INTENT_EVOLUTION"],
+					description:
+						"Classification of the change: AST_REFACTOR for structurally equivalent refactors; INTENT_EVOLUTION for logic/behavior changes.",
+				},
 				file_path: {
 					type: "string",
 					description:
@@ -42,7 +53,7 @@ const search_replace = {
 					description: "The edited text to replace the old_string (must be different from the old_string)",
 				},
 			},
-			required: ["file_path", "old_string", "new_string"],
+			required: ["intent_id", "mutation_class", "file_path", "old_string", "new_string"],
 			additionalProperties: false,
 		},
 	},

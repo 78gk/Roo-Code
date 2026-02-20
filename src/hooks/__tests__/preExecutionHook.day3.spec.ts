@@ -24,7 +24,7 @@ const mockActiveIntentsYaml = (yamlText: string) => {
 	vi.mocked(fs.readFile).mockResolvedValue(yamlText)
 }
 
-describe("preExecutionHook Day 3 guardrails", () => {
+describe("preExecutionHook Day 3+4 guardrails", () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 	})
@@ -37,11 +37,66 @@ describe("preExecutionHook Day 3 guardrails", () => {
 		const result = await preExecutionHook({
 			cwd: "/repo",
 			toolName: "write_to_file",
-			toolArgs: { path: "README.md", content: "x" },
+			toolArgs: {
+				intent_id: "intent_1",
+				mutation_class: "AST_REFACTOR",
+				path: "README.md",
+				content: "x",
+			},
 		})
 
 		expect(result.kind).toBe("blocked")
 		expect(result.toolResult).toContain("Out-of-scope write blocked")
+	})
+
+	it("blocks write tool when intent_id is missing", async () => {
+		mockActiveIntentsYaml(
+			`active_intent_id: intent_1\nintents:\n  - id: intent_1\n    title: Test\n    scope:\n      paths:\n        - src/**\n`,
+		)
+
+		const result = await preExecutionHook({
+			cwd: "/repo",
+			toolName: "write_to_file",
+			toolArgs: { mutation_class: "AST_REFACTOR", path: "src/index.ts", content: "x" },
+		})
+
+		expect(result.kind).toBe("blocked")
+		expect(result.toolResult).toContain("must include intent_id")
+	})
+
+	it("blocks write tool when mutation_class is missing/invalid", async () => {
+		mockActiveIntentsYaml(
+			`active_intent_id: intent_1\nintents:\n  - id: intent_1\n    title: Test\n    scope:\n      paths:\n        - src/**\n`,
+		)
+
+		const result = await preExecutionHook({
+			cwd: "/repo",
+			toolName: "write_to_file",
+			toolArgs: { intent_id: "intent_1", path: "src/index.ts", content: "x" },
+		})
+
+		expect(result.kind).toBe("blocked")
+		expect(result.toolResult).toContain("must include mutation_class")
+	})
+
+	it("blocks write tool when intent_id does not match active intent", async () => {
+		mockActiveIntentsYaml(
+			`active_intent_id: intent_1\nintents:\n  - id: intent_1\n    title: Test\n    scope:\n      paths:\n        - src/**\n`,
+		)
+
+		const result = await preExecutionHook({
+			cwd: "/repo",
+			toolName: "write_to_file",
+			toolArgs: {
+				intent_id: "intent_2",
+				mutation_class: "AST_REFACTOR",
+				path: "src/index.ts",
+				content: "x",
+			},
+		})
+
+		expect(result.kind).toBe("blocked")
+		expect(result.toolResult).toContain("intent_id mismatch")
 	})
 
 	it("allows write tool when path is within active intent scope", async () => {
@@ -52,7 +107,12 @@ describe("preExecutionHook Day 3 guardrails", () => {
 		const result = await preExecutionHook({
 			cwd: "/repo",
 			toolName: "write_to_file",
-			toolArgs: { path: "src/index.ts", content: "x" },
+			toolArgs: {
+				intent_id: "intent_1",
+				mutation_class: "AST_REFACTOR",
+				path: "src/index.ts",
+				content: "x",
+			},
 		})
 
 		expect(result).toEqual({ kind: "continue" })

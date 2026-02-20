@@ -175,8 +175,35 @@ export async function preExecutionHook(args: {
 			}
 		}
 
-		// Day 3: Intent-owned scope enforcement for write tools.
+		// Day 4: Enforce explicit attribution fields for write tools.
 		if (WRITE_TOOLS_REQUIRING_SCOPE_CHECK.has(toolName)) {
+			const toolIntentId = (args.toolArgs as any)?.intent_id
+			const mutationClass = (args.toolArgs as any)?.mutation_class
+
+			if (typeof toolIntentId !== "string" || toolIntentId.trim().length === 0) {
+				return {
+					kind: "blocked",
+					toolResult:
+						"Error: Write tools must include intent_id (must match the currently selected active intent).",
+				}
+			}
+
+			if (mutationClass !== "AST_REFACTOR" && mutationClass !== "INTENT_EVOLUTION") {
+				return {
+					kind: "blocked",
+					toolResult:
+						"Error: Write tools must include mutation_class of either AST_REFACTOR or INTENT_EVOLUTION.",
+				}
+			}
+
+			if (toolIntentId.trim() !== active.id) {
+				return {
+					kind: "blocked",
+					toolResult: `Error: intent_id mismatch. Tool intent_id '${toolIntentId.trim()}' does not match active intent '${active.id}'.`,
+				}
+			}
+
+			// Day 3: Intent-owned scope enforcement for write tools.
 			const relPath = getToolRelPath(toolName, args.toolArgs)
 			if (relPath && active.scopePaths.length > 0) {
 				const allowed = isPathWithinScope({ cwd, relPath, scopeGlobs: active.scopePaths })

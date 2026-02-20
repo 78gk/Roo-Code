@@ -21,3 +21,7 @@ export const hookEngine: HookEngine = {
 export async function runPreToolUseHook(args: PreToolUseArgs): Promise<HookResult> {
 	return hookEngine.preToolUse(args)
 }
+
+export async function runPostToolUseHook(args: import("./types").PostToolUseArgs): Promise<void> {
+	return hookEngine.postToolUse(args)
+}

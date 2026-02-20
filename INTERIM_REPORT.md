@@ -307,10 +307,18 @@ pnpm vitest run src/core/assistant-message/__tests__/presentAssistantMessage-int
 
 **Goal (Phase 2):** HITL command gating + scope enforcement (and interim report readiness).
 
-- [ ] Classify commands/tools as **Safe** vs **Destructive**
-- [ ] Require explicit approval UI for destructive actions (Approve/Reject)
-- [ ] Enforce write scope against intent-owned paths
-- [ ] Maintain hook logic inside `src/hooks/` (keep core loop thin)
+- [x] Classify commands/tools as **Safe** vs **Destructive**
+- [x] Require explicit approval UI for destructive actions (Approve/Reject)
+- [x] Enforce write scope against intent-owned paths
+- [x] Maintain hook logic inside `src/hooks/` (keep core loop thin)
+
+**Evidence (key files/tests):**
+
+- Policy: `src/hooks/pre-execution.ts`
+- Command risk classifier: `src/hooks/policy/commandRisk.ts`
+- Scope enforcement: `src/hooks/policy/intentScope.ts`
+- Tests (hook-level): `src/hooks/__tests__/preExecutionHook.day3.spec.ts`
+- Tests (tool-loop-level): `src/core/assistant-message/__tests__/presentAssistantMessage-day3-guardrails.spec.ts`
 
 ---
 
@@ -324,7 +332,7 @@ pnpm vitest run src/core/assistant-message/__tests__/presentAssistantMessage-int
 
 ### Not yet implemented (planned)
 
-- Phase 2 (Day 3): destructive command HITL + scope enforcement
+- Phase 2 (Day 3): destructive command HITL + scope enforcement (completed 2026-02-19)
 - Phase 3 (Day 4): agent trace JSONL + deterministic SHA-256 content hashing
 - Phase 4/5: parallel orchestration safeguards (optimistic locking; stale write rejection)
 

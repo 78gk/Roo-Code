@@ -19,6 +19,17 @@ export const apply_diff = {
 		parameters: {
 			type: "object",
 			properties: {
+				intent_id: {
+					type: "string",
+					description:
+						"The active intent ID this change is attributable to (must match the currently selected active intent).",
+				},
+				mutation_class: {
+					type: "string",
+					enum: ["AST_REFACTOR", "INTENT_EVOLUTION"],
+					description:
+						"Classification of the change: AST_REFACTOR for structurally equivalent refactors; INTENT_EVOLUTION for logic/behavior changes.",
+				},
 				path: {
 					type: "string",
 					description: "The path of the file to modify, relative to the current workspace directory.",
@@ -28,7 +39,7 @@ export const apply_diff = {
 					description: DIFF_PARAMETER_DESCRIPTION,
 				},
 			},
-			required: ["path", "diff"],
+			required: ["intent_id", "mutation_class", "path", "diff"],
 			additionalProperties: false,
 		},
 	},

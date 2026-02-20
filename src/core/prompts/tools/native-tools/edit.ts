@@ -18,6 +18,17 @@ const edit = {
 		parameters: {
 			type: "object",
 			properties: {
+				intent_id: {
+					type: "string",
+					description:
+						"The active intent ID this change is attributable to (must match the currently selected active intent).",
+				},
+				mutation_class: {
+					type: "string",
+					enum: ["AST_REFACTOR", "INTENT_EVOLUTION"],
+					description:
+						"Classification of the change: AST_REFACTOR for structurally equivalent refactors; INTENT_EVOLUTION for logic/behavior changes.",
+				},
 				file_path: {
 					type: "string",
 					description: "The path of the file to edit (relative to the working directory)",
@@ -39,7 +50,7 @@ const edit = {
 					default: false,
 				},
 			},
-			required: ["file_path", "old_string", "new_string"],
+			required: ["intent_id", "mutation_class", "file_path", "old_string", "new_string"],
 			additionalProperties: false,
 		},
 	},
