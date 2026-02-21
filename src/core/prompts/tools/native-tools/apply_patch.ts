@@ -46,13 +46,24 @@ const apply_patch = {
 		parameters: {
 			type: "object",
 			properties: {
+				intent_id: {
+					type: "string",
+					description:
+						"The active intent ID this patch is attributable to (must match the currently selected active intent).",
+				},
+				mutation_class: {
+					type: "string",
+					enum: ["AST_REFACTOR", "INTENT_EVOLUTION"],
+					description:
+						"Classification of the change: AST_REFACTOR for structurally equivalent refactors; INTENT_EVOLUTION for logic/behavior changes.",
+				},
 				patch: {
 					type: "string",
 					description:
 						"The complete patch text in the apply_patch format, starting with '*** Begin Patch' and ending with '*** End Patch'.",
 				},
 			},
-			required: ["patch"],
+			required: ["intent_id", "mutation_class", "patch"],
 			additionalProperties: false,
 		},
 	},

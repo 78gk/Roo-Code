@@ -198,51 +198,19 @@ Post-execution hooks are planned for traceability:
 
 ### Figure 1 — Hook engine privilege boundary (User → Webview → Hook → Tool)
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant U as User
-  participant W as Webview UI
-  participant EH as Extension Host
-  participant H as Hook Engine (preExecutionHook)
-  participant T as Tool التنفيذ (write/command/etc.)
-  participant FS as Filesystem/Terminal
+![Figure 1 — Hook engine privilege boundary](report-assets/figure-1-hook-boundary.png)
 
-  U->>W: Prompt
-  W->>EH: message
-  EH->>EH: Build system prompt + tool schema
-  EH->>EH: LLM request
-  EH-->>EH: assistant tool_use(name,args)
-
-  EH->>H: preExecutionHook(toolName, toolArgs, cwd)
-  alt No active intent AND toolName != select_active_intent
-    H-->>EH: Block (governance error)
-    EH-->>W: tool_result(error)
-  else toolName == select_active_intent
-    H-->>EH: Persist active_intent_id + return <intent_context>
-    EH-->>W: tool_result(<intent_context>)
-  else Active intent already selected
-    H-->>EH: Allow
-    EH->>T: Execute tool
-    T->>FS: Side effects (write/command)
-    T-->>EH: tool_result
-    EH-->>W: tool_result
-  end
 ```
 
 ### Figure 2 — Intent handshake (two-stage)
+```
 
-```mermaid
-flowchart TB
-  A[User prompt] --> B[Model must call select_active_intent]
-  B --> C{Hook loads active_intents.yaml}
-  C -->|valid| D[Set active_intent_id]
-  D --> E[Return minimal <intent_context>]
-  E --> F[Subsequent tools allowed]
-  C -->|invalid| G[Return explicit error tool_result]
+![Figure 2 — Intent handshake](report-assets/figure-1-hook-boundary.png)
+
 ```
 
 ---
+```
 
 ## 6) Schemas
 
@@ -339,10 +307,18 @@ pnpm vitest run src/core/assistant-message/__tests__/presentAssistantMessage-int
 
 **Goal (Phase 2):** HITL command gating + scope enforcement (and interim report readiness).
 
-- [ ] Classify commands/tools as **Safe** vs **Destructive**
-- [ ] Require explicit approval UI for destructive actions (Approve/Reject)
-- [ ] Enforce write scope against intent-owned paths
-- [ ] Maintain hook logic inside `src/hooks/` (keep core loop thin)
+- [x] Classify commands/tools as **Safe** vs **Destructive**
+- [x] Require explicit approval UI for destructive actions (Approve/Reject)
+- [x] Enforce write scope against intent-owned paths
+- [x] Maintain hook logic inside `src/hooks/` (keep core loop thin)
+
+**Evidence (key files/tests):**
+
+- Policy: `src/hooks/pre-execution.ts`
+- Command risk classifier: `src/hooks/policy/commandRisk.ts`
+- Scope enforcement: `src/hooks/policy/intentScope.ts`
+- Tests (hook-level): `src/hooks/__tests__/preExecutionHook.day3.spec.ts`
+- Tests (tool-loop-level): `src/core/assistant-message/__tests__/presentAssistantMessage-day3-guardrails.spec.ts`
 
 ---
 
@@ -356,7 +332,7 @@ pnpm vitest run src/core/assistant-message/__tests__/presentAssistantMessage-int
 
 ### Not yet implemented (planned)
 
-- Phase 2 (Day 3): destructive command HITL + scope enforcement
+- Phase 2 (Day 3): destructive command HITL + scope enforcement (completed 2026-02-19)
 - Phase 3 (Day 4): agent trace JSONL + deterministic SHA-256 content hashing
 - Phase 4/5: parallel orchestration safeguards (optimistic locking; stale write rejection)
 

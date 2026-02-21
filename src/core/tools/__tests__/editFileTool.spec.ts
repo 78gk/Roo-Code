@@ -194,12 +194,14 @@ describe("editFileTool", () => {
 			type: "tool_use",
 			name: "edit_file",
 			params: {
+				intent_id: "intent_1",
+				mutation_class: "AST_REFACTOR",
 				file_path: testFilePath,
 				old_string: testOldString,
 				new_string: testNewString,
 				...params,
 			},
-			nativeArgs: nativeArgs as any,
+			nativeArgs: { intent_id: "intent_1", mutation_class: "AST_REFACTOR", ...nativeArgs } as any,
 			partial: isPartial,
 		}
 
@@ -636,11 +638,15 @@ describe("editFileTool", () => {
 				type: "tool_use",
 				name: "edit_file",
 				params: {
+					intent_id: "intent_1",
+					mutation_class: "AST_REFACTOR",
 					file_path: testFilePath,
 					old_string: testOldString,
 					new_string: testNewString,
 				},
 				nativeArgs: {
+					intent_id: "intent_1",
+					mutation_class: "AST_REFACTOR",
 					file_path: testFilePath,
 					old_string: testOldString,
 					new_string: testNewString,

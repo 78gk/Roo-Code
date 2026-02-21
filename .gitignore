@@ -55,3 +55,6 @@ qdrant_storage/
 plans/
 
 roo-cli-*.tar.gz*
+
+# Local transient proof logs
+report-assets/final-proof-test-output.txt

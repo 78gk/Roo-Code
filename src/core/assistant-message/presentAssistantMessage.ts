@@ -41,7 +41,7 @@ import { codebaseSearchTool } from "../tools/CodebaseSearchTool"
 import { formatResponse } from "../prompts/responses"
 import { sanitizeToolUseId } from "../../utils/tool-id"
 import { hasActiveIntentSelected } from "../intents/activeIntent"
-import { runPreToolUseHook } from "../../hooks"
+import { runPreToolUseHook, hookEngine } from "../../hooks"
 
 /**
  * Processes and presents assistant message content to the user interface.
@@ -258,6 +258,7 @@ export async function presentAssistantMessage(cline: Task) {
 			if (!mcpBlock.partial) {
 				const hookResult = await runPreToolUseHook({
 					cwd: cline.cwd,
+					taskId: cline.taskId,
 					toolName: "use_mcp_tool",
 					toolArgs: mcpBlock.arguments,
 				})
@@ -435,6 +436,7 @@ export async function presentAssistantMessage(cline: Task) {
 			if (!block.partial) {
 				const hookResult = await runPreToolUseHook({
 					cwd: cline.cwd,
+					taskId: cline.taskId,
 					toolName: block.name as ToolName,
 					toolArgs: (block.nativeArgs ?? block.params) as unknown,
 				})
@@ -546,6 +548,22 @@ export async function presentAssistantMessage(cline: Task) {
 						const feedbackImageBlocks = formatResponse.imageBlocks(approvalFeedback.images)
 						imageBlocks = [...feedbackImageBlocks, ...imageBlocks]
 					}
+				}
+
+				// Post-tool hook boundary (Day 4 traceability).
+				// Only run once per completed tool call, and never block the UI.
+				if (!block.partial) {
+					// Fire-and-forget; tracing must not block tool result delivery.
+					void hookEngine
+						.postToolUse({
+							cwd: cline.cwd,
+							taskId: cline.taskId,
+							modelId: cline.api.getModel().id,
+							toolName: block.name as ToolName,
+							toolArgs: (block.nativeArgs ?? block.params) as unknown,
+							toolResult: resultContent,
+						})
+						.catch(() => {})
 				}
 
 				cline.pushToolResultToUserContent({

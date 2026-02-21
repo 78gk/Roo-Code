@@ -176,6 +176,8 @@ describe("searchReplaceTool", () => {
 		mockCline.rooIgnoreController.validateAccess.mockReturnValue(accessAllowed)
 
 		const nativeArgs: Record<string, unknown> = {
+			intent_id: "intent_1",
+			mutation_class: "AST_REFACTOR",
 			file_path: testFilePath,
 			old_string: testOldString,
 			new_string: testNewString,
@@ -188,6 +190,8 @@ describe("searchReplaceTool", () => {
 			type: "tool_use",
 			name: "search_replace",
 			params: {
+				intent_id: "intent_1",
+				mutation_class: "AST_REFACTOR",
 				file_path: testFilePath,
 				old_string: testOldString,
 				new_string: testNewString,
@@ -346,11 +350,15 @@ describe("searchReplaceTool", () => {
 				type: "tool_use",
 				name: "search_replace",
 				params: {
+					intent_id: "intent_1",
+					mutation_class: "AST_REFACTOR",
 					file_path: testFilePath,
 					old_string: testOldString,
 					new_string: testNewString,
 				},
 				nativeArgs: {
+					intent_id: "intent_1",
+					mutation_class: "AST_REFACTOR",
 					file_path: testFilePath,
 					old_string: testOldString,
 					new_string: testNewString,
@@ -412,7 +420,12 @@ describe("searchReplaceTool", () => {
 			const searchWithCRLF = "Line 1\r\nLine 2"
 
 			await executeSearchReplaceTool(
-				{ old_string: searchWithCRLF, new_string: "Modified Lines" },
+				{
+					intent_id: "intent_1",
+					mutation_class: "AST_REFACTOR",
+					old_string: searchWithCRLF,
+					new_string: "Modified Lines",
+				},
 				{ fileContent: contentWithCRLF },
 			)
 
@@ -427,7 +440,12 @@ describe("searchReplaceTool", () => {
 			const searchWithLF = "Line 1\nLine 2"
 
 			await executeSearchReplaceTool(
-				{ old_string: searchWithLF, new_string: "Modified Lines" },
+				{
+					intent_id: "intent_1",
+					mutation_class: "AST_REFACTOR",
+					old_string: searchWithLF,
+					new_string: "Modified Lines",
+				},
 				{ fileContent: contentWithCRLF },
 			)
 

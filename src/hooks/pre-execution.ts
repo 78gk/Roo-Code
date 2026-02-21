@@ -5,7 +5,14 @@ import * as yaml from "yaml"
 
 import type { ToolName } from "@roo-code/types"
 
+import * as vscode from "vscode"
+
 import { fileExistsAtPath, createDirectoriesForFile } from "../utils/fs"
+
+import { isPathWithinScope } from "./policy/intentScope"
+import { classifyCommandRisk } from "./policy/commandRisk"
+import { readHashStore } from "./locking/readHashStore"
+import { sha256Hash } from "../utils/hash"
 
 const ACTIVE_INTENTS_RELATIVE_PATH = path.join(".orchestration", "active_intents.yaml")
 
@@ -34,6 +41,46 @@ type ActiveIntentsFileAny = {
 	active_intents?: IntentFromPlanDoc[]
 	// Repo shape
 	intents?: IntentFromRepoSchema[]
+}
+
+const WRITE_TOOLS_REQUIRING_SCOPE_CHECK: ReadonlySet<ToolName> = new Set([
+	"write_to_file",
+	"apply_diff",
+	"edit",
+	"edit_file",
+	"search_and_replace",
+	"search_replace",
+	"apply_patch",
+	"generate_image",
+])
+
+function getToolRelPath(toolName: ToolName, toolArgs: unknown): string | null {
+	const args = toolArgs as any
+	switch (toolName) {
+		case "write_to_file":
+		case "apply_diff":
+		case "generate_image":
+			return typeof args?.path === "string" ? args.path : null
+		case "edit":
+		case "edit_file":
+		case "search_and_replace":
+		case "search_replace":
+			return typeof args?.file_path === "string" ? args.file_path : null
+		case "apply_patch":
+			return typeof args?.path === "string" ? args.path : null
+		default:
+			return null
+	}
+}
+
+type ActiveIntentResolved = { id: string; title: string; constraints: string[]; scopePaths: string[] }
+
+function resolveActiveIntent(data: ActiveIntentsFileAny): ActiveIntentResolved | null {
+	const activeId = data.active_intent_id
+	if (!activeId) return null
+	const intent = findIntent(data, activeId)
+	if (!intent) return null
+	return { id: activeId, ...intent }
 }
 
 export type PreExecutionHookResult =
@@ -112,20 +159,137 @@ function buildIntentContextXml(input: {
 
 export async function preExecutionHook(args: {
 	cwd: string
+	taskId: string
 	toolName: ToolName
 	toolArgs: unknown
 }): Promise<PreExecutionHookResult> {
-	const { cwd, toolName } = args
+	const { cwd, toolName, taskId } = args
 
 	// Gatekeeper: block *all* tools except the handshake tool until an intent is selected.
 	if (toolName !== "select_active_intent") {
 		const { data } = await readActiveIntentsFile(cwd)
-		const activeId = data.active_intent_id
-		if (!activeId || !findIntent(data, activeId)) {
+		const active = resolveActiveIntent(data)
+
+		if (!active) {
 			return {
 				kind: "blocked",
 				toolResult:
 					"Error: You must first declare an active intent using select_active_intent(intent_id) before performing any other actions.",
+			}
+		}
+
+		// Phase 4 (Day 5): Optimistic locking.
+		// Record read-time hash for read_file so later writes can detect staleness.
+		if (toolName === "read_file") {
+			const relPath = (args.toolArgs as any)?.path
+			if (typeof relPath === "string" && relPath.trim().length > 0) {
+				try {
+					const abs = path.join(cwd, relPath)
+					const content = await fs.readFile(abs, "utf-8")
+					const hash = sha256Hash(content)
+					readHashStore.set(
+						{ taskId, intentId: active.id, relPath },
+						{ hash, capturedAt: new Date().toISOString(), toolName },
+					)
+				} catch {
+					// If read fails, do not record.
+				}
+			}
+		}
+
+		// Day 4: Enforce explicit attribution fields for write tools.
+		if (WRITE_TOOLS_REQUIRING_SCOPE_CHECK.has(toolName)) {
+			const toolIntentId = (args.toolArgs as any)?.intent_id
+			const mutationClass = (args.toolArgs as any)?.mutation_class
+
+			if (typeof toolIntentId !== "string" || toolIntentId.trim().length === 0) {
+				return {
+					kind: "blocked",
+					toolResult:
+						"Error: Write tools must include intent_id (must match the currently selected active intent).",
+				}
+			}
+
+			if (mutationClass !== "AST_REFACTOR" && mutationClass !== "INTENT_EVOLUTION") {
+				return {
+					kind: "blocked",
+					toolResult:
+						"Error: Write tools must include mutation_class of either AST_REFACTOR or INTENT_EVOLUTION.",
+				}
+			}
+
+			if (toolIntentId.trim() !== active.id) {
+				return {
+					kind: "blocked",
+					toolResult: `Error: intent_id mismatch. Tool intent_id '${toolIntentId.trim()}' does not match active intent '${active.id}'.`,
+				}
+			}
+
+			const relPath = getToolRelPath(toolName, args.toolArgs)
+
+			// Day 3: Intent-owned scope enforcement for write tools.
+			if (relPath && active.scopePaths.length > 0) {
+				const allowed = isPathWithinScope({ cwd, relPath, scopeGlobs: active.scopePaths })
+				if (!allowed) {
+					return {
+						kind: "blocked",
+						toolResult: `Error: Out-of-scope write blocked. Path '${relPath}' is not within the active intent scope. Allowed scope globs: ${active.scopePaths.join(", ")}`,
+					}
+				}
+			} else if (relPath && active.scopePaths.length === 0) {
+				return {
+					kind: "blocked",
+					toolResult:
+						"Error: Out-of-scope write blocked. Active intent has no declared owned_scope/scope.paths; refusing to write.",
+				}
+			}
+
+			// Phase 4 (Day 5): stale write rejection.
+			if (relPath) {
+				const stored = readHashStore.get({ taskId, intentId: active.id, relPath })
+				if (!stored) {
+					return {
+						kind: "blocked",
+						toolResult: `Error: Stale File. No read snapshot recorded for '${relPath}'. You must call read_file on this path before writing to it.`,
+					}
+				}
+
+				try {
+					const abs = path.join(cwd, relPath)
+					const current = await fs.readFile(abs, "utf-8")
+					const currentHash = sha256Hash(current)
+					if (currentHash !== stored.hash) {
+						return {
+							kind: "blocked",
+							toolResult: `Error: Stale File. '${relPath}' has changed since last read. Re-read the file (read_file) and re-apply your change.`,
+						}
+					}
+				} catch {
+					return {
+						kind: "blocked",
+						toolResult: `Error: Stale File. Unable to verify current state of '${relPath}'. Re-read and retry.`,
+					}
+				}
+			}
+		}
+
+		// Day 3: HITL gating for destructive commands.
+		if (toolName === "execute_command") {
+			const command = (args.toolArgs as any)?.command
+			if (typeof command === "string" && classifyCommandRisk(command) === "destructive") {
+				const selection = await vscode.window.showWarningMessage(
+					`Destructive command requested: ${command}`,
+					{ modal: true },
+					"Approve",
+					"Reject",
+				)
+
+				if (selection !== "Approve") {
+					return {
+						kind: "blocked",
+						toolResult: `Error: Destructive command rejected by user: ${command}`,
+					}
+				}
 			}
 		}
 
