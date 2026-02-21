@@ -3,7 +3,7 @@
 **Course/Track:** 10 Academy — TRP1 Intensive Training  
 **Codebase:** Fork of Roo Code  
 **Branch:** `feature/intent-handshake`  
-**Commit:** `b4e5c9b87085362e9cc33b726c8b22416840b247`  
+**Commit:** `5f6318c88` (updated; see git history section)  
 **Date:** 2026-02-21
 
 ## 1) Final Outcome
@@ -81,7 +81,36 @@ Coverage mapping:
 - Hook architecture: isolated middleware boundary with explicit failure behavior.
 - Orchestration: stale-write collision detection and rejection in concurrent scenarios.
 
-## 7) Remaining Manual Submission Step
+## 7) Rubric Mapping (Submission Criteria)
+
+### A) GitHub Repository Submission
+
+- Hook architecture and middleware quality:
+    - Deterministic hook boundary implemented in `src/hooks/pre-execution.ts`, `src/hooks/postToolHook.ts`, `src/hooks/engine.ts`.
+    - Core execution loop remains decoupled from policy logic via hook interception.
+- Context engineering and reasoning loop implementation:
+    - Mandatory `select_active_intent(intent_id)` handshake before mutating tools.
+    - Minimal context injection from sidecar intent records (constraints + scope only).
+- Intent-AST correlation and traceability:
+    - Append-only `.orchestration/agent_trace.jsonl` populated with deterministic `content_hash` values.
+    - Write-tool schemas carry `intent_id` and `mutation_class`.
+- Git history and engineering quality:
+    - Incremental, scoped commits per phase and final packaging.
+    - Recent delivery commits:
+        - `482675438` — final sidecar artifacts + proof evidence
+        - `5f6318c88` — final report artifacts
+
+### B) Report Submission
+
+- Complete implementation and architecture schemas:
+    - Architecture references are documented in this report and `ARCHITECTURE_NOTES.md`.
+- Agent flow and hook system breakdown:
+    - End-to-end behavior described across handshake, guardrails, trace, and locking sections.
+- Achievement summary and reflective analysis:
+    - Completed in final packaging + proof evidence sections.
+    - Lessons and design rationale captured in `CLAUDE.md`.
+
+## 8) Remaining Manual Submission Step
 
 A manual 5-minute screen recording is still required to visually demonstrate:
 
