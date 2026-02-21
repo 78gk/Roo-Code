@@ -1,0 +1,77 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 1055 >>
+stream
+BT
+/F1 11 Tf
+50 790 Td
+(TRP1 Challenge Week 1 - Final Submission Report) Tj
+0 -14 Td
+(Date: 2026-02-21) Tj
+0 -14 Td
+(Branch: feature/intent-handshake) Tj
+0 -14 Td
+(Commit: b4e5c9b87085362e9cc33b726c8b22416840b247) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Implemented:) Tj
+0 -14 Td
+(- Intent handshake + mandatory select_active_intent) Tj
+0 -14 Td
+(- Deterministic PreToolUse/PostToolUse hooks) Tj
+0 -14 Td
+(- Scope enforcement for writes) Tj
+0 -14 Td
+(- HITL approval for destructive commands) Tj
+0 -14 Td
+(- Agent trace JSONL with SHA-256 content hashes) Tj
+0 -14 Td
+(- Optimistic locking / stale write rejection) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Artifacts:) Tj
+0 -14 Td
+(- .orchestration/active_intents.yaml) Tj
+0 -14 Td
+(- .orchestration/agent_trace.jsonl) Tj
+0 -14 Td
+(- .orchestration/intent_map.md) Tj
+0 -14 Td
+(- CLAUDE.md) Tj
+0 -14 Td
+(- FINAL_PROOF_WORKFLOW.md) Tj
+0 -14 Td
+(- report-assets/final-proof-test-output-v2.txt) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Proof: 7 test files passed, 23 tests passed.) Tj
+0 -14 Td
+(See FINAL_REPORT.md for full details.) Tj
+0 -14 Td
+ET
+
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n `n0000000058 00000 n `n0000000115 00000 n `n0000000241 00000 n `n0000000311 00000 n `ntrailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1418
+%%EOF
